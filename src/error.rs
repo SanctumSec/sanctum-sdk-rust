@@ -66,7 +66,7 @@ pub enum SanctumError {
     Json(#[from] serde_json::Error),
 
     #[error("Vault error: {0}")]
-    Vault(VaultError),
+    Vault(Box<VaultError>),
 
     #[error("Protocol error: {0}")]
     Protocol(String),

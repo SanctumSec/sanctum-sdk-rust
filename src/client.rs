@@ -110,7 +110,7 @@ impl SanctumClient {
                     docs_url: None,
                     context: None,
                 });
-            return Err(SanctumError::Vault(vault_err));
+            return Err(SanctumError::Vault(Box::new(vault_err)));
         }
         resp.result.ok_or_else(|| SanctumError::Protocol("response missing both result and error".into()))
     }

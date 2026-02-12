@@ -5,7 +5,9 @@ use ed25519_dalek::{SigningKey, Signer};
 use serde_json::{json, Value};
 use tokio::io::{BufReader, BufWriter};
 use tokio::io::{ReadHalf, WriteHalf};
-use tokio::net::{TcpStream, UnixStream};
+use tokio::net::TcpStream;
+#[cfg(unix)]
+use tokio::net::UnixStream;
 use tokio::sync::Mutex;
 
 use crate::error::{SanctumError, Result, VaultError};
@@ -13,6 +15,7 @@ use crate::protocol;
 use crate::types::*;
 
 enum Transport {
+    #[cfg(unix)]
     Unix {
         reader: BufReader<ReadHalf<UnixStream>>,
         writer: BufWriter<WriteHalf<UnixStream>>,
@@ -35,19 +38,24 @@ impl SanctumClient {
     /// If `addr` starts with `/` or `.`, it is treated as a Unix socket path.
     /// Otherwise it is treated as a TCP address (e.g. `127.0.0.1:9090`).
     pub async fn connect(addr: &str) -> Result<Self> {
-        let transport = if addr.starts_with('/') || addr.starts_with('.') {
-            let stream = UnixStream::connect(addr).await?;
-            let (r, w) = tokio::io::split(stream);
-            Transport::Unix {
-                reader: BufReader::new(r),
-                writer: BufWriter::new(w),
+        #[cfg(unix)]
+        let is_unix_path = addr.starts_with('/') || addr.starts_with('.') || Path::new(addr).exists();
+        #[cfg(not(unix))]
+        let is_unix_path = false;
+
+        let transport = if is_unix_path {
+            #[cfg(unix)]
+            {
+                let stream = UnixStream::connect(addr).await?;
+                let (r, w) = tokio::io::split(stream);
+                Transport::Unix {
+                    reader: BufReader::new(r),
+                    writer: BufWriter::new(w),
+                }
             }
-        } else if Path::new(addr).exists() {
-            let stream = UnixStream::connect(addr).await?;
-            let (r, w) = tokio::io::split(stream);
-            Transport::Unix {
-                reader: BufReader::new(r),
-                writer: BufWriter::new(w),
+            #[cfg(not(unix))]
+            {
+                return Err(SanctumError::Protocol("Unix sockets not supported on Windows".into()));
             }
         } else {
             let stream = TcpStream::connect(addr).await?;
@@ -77,6 +85,7 @@ impl SanctumClient {
 
         let mut transport = self.transport.lock().await;
         match &mut *transport {
+            #[cfg(unix)]
             Transport::Unix { reader, writer } => {
                 protocol::write_frame(writer, &req).await?;
                 let resp = protocol::read_frame(reader).await?;

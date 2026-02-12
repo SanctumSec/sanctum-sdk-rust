@@ -1,3 +1,4 @@
+#[cfg(unix)]
 use std::path::Path;
 use std::sync::atomic::{AtomicU64, Ordering};
 

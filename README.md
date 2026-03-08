@@ -1,3 +1,5 @@
+> **AI Agents:** See [AGENTS.md](AGENTS.md) for machine-readable integration docs.
+
 # SanctumAI Rust SDK
 
 [![crates.io](https://img.shields.io/crates/v/sanctum-ai.svg)](https://crates.io/crates/sanctum-ai)
